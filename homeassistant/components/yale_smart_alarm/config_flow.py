@@ -15,7 +15,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     OptionsFlow,
 )
-from homeassistant.const import CONF_NAME, CONF_PASSWORD, CONF_USERNAME
+from homeassistant.const import CONF_NAME, CONF_PASSWORD, CONF_USERNAME, CONF_CODE
 from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 
@@ -35,6 +35,7 @@ DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_USERNAME): cv.string,
         vol.Required(CONF_PASSWORD): cv.string,
         vol.Required(CONF_AREA_ID, default=DEFAULT_AREA_ID): cv.string,
+        vol.Optional(CONF_CODE, default="1234"): cv.string,
     }
 )
 
@@ -118,6 +119,7 @@ class YaleConfigFlow(ConfigFlow, domain=DOMAIN):
             password = user_input[CONF_PASSWORD]
             name = DEFAULT_NAME
             area = user_input.get(CONF_AREA_ID, DEFAULT_AREA_ID)
+            code = user_input.get(CONF_CODE, "1234")
 
             try:
                 await self.hass.async_add_executor_job(
@@ -141,6 +143,7 @@ class YaleConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_PASSWORD: password,
                         CONF_NAME: name,
                         CONF_AREA_ID: area,
+                        CONF_CODE: code,
                     },
                 )
 
@@ -179,6 +182,12 @@ class YaleOptionsFlowHandler(OptionsFlow):
                             )
                         },
                     ): int,
+                    vol.Optional(
+                        CONF_CODE,
+                        description={
+                            "suggested_value": self.entry.options.get(CONF_CODE, "1234")
+                        },
+                    ): str,
                 }
             ),
             errors=errors,
