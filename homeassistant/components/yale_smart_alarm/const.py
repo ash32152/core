@@ -14,7 +14,10 @@ from homeassistant.const import (
     STATE_ALARM_ARMED_HOME,
     STATE_ALARM_DISARMED,
     Platform,
+    CONF_CODE,
 )
+
+import homeassistant.helpers.config_validation as cv
 
 CONF_AREA_ID = "area_id"
 CONF_LOCK_CODE_DIGITS = "lock_code_digits"
@@ -54,3 +57,7 @@ YALE_BASE_ERRORS = (
     UnknownError,
 )
 YALE_ALL_ERRORS = (*YALE_BASE_ERRORS, AuthenticationError)
+
+# New constants for code
+CONF_CODE = "code"
+DEFAULT_CODE = "1234"
