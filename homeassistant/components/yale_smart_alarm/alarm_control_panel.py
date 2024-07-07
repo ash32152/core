@@ -13,15 +13,16 @@ from yalesmartalarmclient.const import (
 from homeassistant.components.alarm_control_panel import (
     AlarmControlPanelEntity,
     AlarmControlPanelEntityFeature,
+    CodeFormat,
 )
-from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_NAME, CONF_CODE
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
 from . import YaleConfigEntry
-from .const import DOMAIN, STATE_MAP, YALE_ALL_ERRORS
+from .const import DOMAIN, STATE_MAP, YALE_ALL_ERRORS, CONF_CODE, DEFAULT_CODE
 from .coordinator import YaleDataUpdateCoordinator
 from .entity import YaleAlarmEntity
 
@@ -30,7 +31,6 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: YaleConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up the alarm entry."""
-
     async_add_entities([YaleAlarmDevice(coordinator=entry.runtime_data)])
 
 
@@ -48,20 +48,34 @@ class YaleAlarmDevice(YaleAlarmEntity, AlarmControlPanelEntity):
         """Initialize the Yale Alarm Device."""
         super().__init__(coordinator)
         self._attr_unique_id = coordinator.entry.entry_id
+        self._code = coordinator.entry.data.get(CONF_CODE, DEFAULT_CODE)  # Get code from config
+
+    @property
+    def code_format(self) -> CodeFormat | None:
+        """Return one or more digits/characters."""
+        if self._code.isdigit():
+            return CodeFormat.NUMBER
+        return CodeFormat.TEXT
 
     async def async_alarm_disarm(self, code: str | None = None) -> None:
         """Send disarm command."""
-        return await self.async_set_alarm(YALE_STATE_DISARM, code)
+        self._async_validate_code(code)
+        return await self.async_set_alarm(YALE_STATE_DISARM)
 
     async def async_alarm_arm_home(self, code: str | None = None) -> None:
         """Send arm home command."""
-        return await self.async_set_alarm(YALE_STATE_ARM_PARTIAL, code)
+        return await self.async_set_alarm(YALE_STATE_ARM_PARTIAL)
 
     async def async_alarm_arm_away(self, code: str | None = None) -> None:
         """Send arm away command."""
-        return await self.async_set_alarm(YALE_STATE_ARM_FULL, code)
+        return await self.async_set_alarm(YALE_STATE_ARM_FULL)
 
-    async def async_set_alarm(self, command: str, code: str | None = None) -> None:
+    def _async_validate_code(self, code: str | None) -> None:
+        """Validate given code."""
+        if code != self._code:
+            raise HomeAssistantError("Invalid code")
+
+    async def async_set_alarm(self, command: str) -> None:
         """Set alarm."""
         if TYPE_CHECKING:
             assert self.coordinator.yale, "Connection to API is missing"
@@ -71,11 +85,11 @@ class YaleAlarmDevice(YaleAlarmEntity, AlarmControlPanelEntity):
                 alarm_state = await self.hass.async_add_executor_job(
                     self.coordinator.yale.arm_full
                 )
-            if command == YALE_STATE_ARM_PARTIAL:
+            elif command == YALE_STATE_ARM_PARTIAL:
                 alarm_state = await self.hass.async_add_executor_job(
                     self.coordinator.yale.arm_partial
                 )
-            if command == YALE_STATE_DISARM:
+            elif command == YALE_STATE_DISARM:
                 alarm_state = await self.hass.async_add_executor_job(
                     self.coordinator.yale.disarm
                 )
